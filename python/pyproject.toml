@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "grindfree-guard"
+version = "0.1.0"
+description = "Drop-in x402 guards that screen GrindFree agent-security APIs before an agent acts. Caller wallet only."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [{ name = "GrindFree", email = "rob@grindfree.net" }]
+keywords = ["x402", "agents", "security", "guardrail", "toolguard", "commandguard"]
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+]
+dependencies = []
+
+[project.optional-dependencies]
+x402 = ["x402[httpx,evm]>=2.0", "eth-account>=0.11"]
+langchain = ["langchain-core"]
+dev = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/ronin93/grindfree-guard"
+Repository = "https://github.com/ronin93/grindfree-guard"
+Issues = "https://github.com/ronin93/grindfree-guard/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
