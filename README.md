@@ -24,8 +24,6 @@ Contact: [rob@grindfree.net](mailto:rob@grindfree.net) · [@grindfreelabs](https
 
 ```bash
 npm i @grindfree/guard
-# until the npm publish is approved, install from git:
-# npm i github:ronin93/grindfree-guard
 ```
 
 ```bash
