@@ -243,3 +243,47 @@ describe("fail-closed errors", () => {
     await assert.rejects(() => guard.guardToolCall({ tool: "http.fetch" }, () => 1), GuardDenied);
   });
 });
+
+describe("wrapMcpClient", () => {
+  it("runs ToolGuard and then callTool on allow, and skips callTool on deny", async () => {
+    const { wrapMcpClient } = await import("../src/wrap-mcp.js");
+    const { createGuard } = await import("../src/index.js");
+    let invoked = 0;
+    const client = {
+      callTool: async (params: { name: string }) => {
+        invoked += 1;
+        return { ok: params.name };
+      },
+    };
+    const allowed = wrapMcpClient(client, {
+      guard: createGuard({ fetch: mockPaidFetch([{ urlIncludes: "/v1/evaluate", body: { decision: "allow" } }]) }),
+    });
+    assert.deepEqual(await allowed.callTool({ name: "search" }), { ok: "search" });
+    assert.equal(invoked, 1);
+
+    invoked = 0;
+    const blocked = wrapMcpClient(
+      { callTool: async () => { invoked += 1; return { ok: true }; } },
+      { guard: createGuard({ fetch: mockPaidFetch([{ urlIncludes: "/v1/evaluate", body: { decision: "deny", reasons: ["TOOL_DENIED"] } }]) }) },
+    );
+    await assert.rejects(() => blocked.callTool({ name: "http.fetch" }), GuardDenied);
+    assert.equal(invoked, 0);
+  });
+
+  it("uses CommandGuard for a shell-like tool name", async () => {
+    const { wrapMcpClient } = await import("../src/wrap-mcp.js");
+    const { createGuard } = await import("../src/index.js");
+    const calls: Array<{ url: string; body: unknown }> = [];
+    const client = wrapMcpClient(
+      { callTool: async () => "ran" },
+      {
+        guard: createGuard({
+          fetch: mockPaidFetch([{ urlIncludes: "/v1/command", body: { decision: "block", findings: [{ rule: "RECURSIVE_DELETE_USER_DATA" }] } }], calls),
+        }),
+      },
+    );
+    await assert.rejects(() => client.callTool({ name: "shell.exec", arguments: { command: "rm -rf $HOME" } }), GuardDenied);
+    assert.equal(calls.length, 1);
+    assert.match(calls[0].url, /commandguard\.grindfree\.net\/v1\/command/);
+  });
+});

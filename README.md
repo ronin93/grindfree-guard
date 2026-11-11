@@ -80,8 +80,9 @@ Copy-paste starters (wallet still comes from `X402_PRIVATE_KEY`):
 - [`examples/mcp-client/wrap-mcp.ts`](examples/mcp-client/wrap-mcp.ts) — wrap `client.callTool` (CommandGuard for shell/SQL tools, ToolGuard otherwise)
 
 ```ts
-import { wrapMcpClient } from "./examples/mcp-client/wrap-mcp.js";
-// const client = wrapMcpClient(mcpClient, { policy: { allow_tools: ["mcp.search"] } });
+import { wrapMcpClient } from "@grindfree/guard";
+const client = wrapMcpClient(mcpClient, { policy: { allow_tools: ["mcp.search"] } });
+// Shell/SQL-named tools go through CommandGuard; everything else through ToolGuard.
 ```
 
 Python twin (`guard_tool_call`, `guard_command`, `require_safe_prompt`, …) lives in [`python/`](python/).

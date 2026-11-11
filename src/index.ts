@@ -18,3 +18,5 @@ export type { Verdict, ReviewMode, ErrorMode, NormalizedDecision, EnforceOptions
 export { GuardConfigError, GuardError, GuardDenied, GuardReviewRequired } from "./errors.js";
 export { SERVICES, NETWORK, PAY_TO, serviceUrl } from "./services.js";
 export type { ServiceName, ServiceSpec, EndpointSpec } from "./services.js";
+export { wrapMcpClient } from "./wrap-mcp.js";
+export type { WrapMcpOptions } from "./wrap-mcp.js";
