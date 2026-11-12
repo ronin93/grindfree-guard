@@ -16,6 +16,7 @@ SERVICES = {
     "wireshield": {"origin": "https://wireshield.grindfree.net", "endpoints": {"scan": "/v1/scan"}},
     "docshield": {"origin": "https://docshield.grindfree.net", "endpoints": {"scan": "/v1/scan"}},
     "saferead": {"origin": "https://saferead.grindfree.net", "endpoints": {"read": "/v1/read"}},
+    "askhuman": {"origin": "https://askhuman.grindfree.net", "endpoints": {"request": "/v1/request"}},
 }
 
 

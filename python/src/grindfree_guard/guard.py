@@ -12,10 +12,41 @@ from .decisions import (
     enforce_sync,
     normalize_decision,
 )
-from .errors import GuardDenied, GuardError
+from .errors import GuardDenied, GuardError, GuardReviewRequired
 from .services import service_url
 
 T = TypeVar("T")
+
+# (url) -> dict for free GET endpoints (AskHuman status). Tests inject this.
+GetFn = Callable[[str], dict[str, Any]]
+
+
+def _default_get(timeout: float) -> GetFn:
+    import json as _json
+    import urllib.error
+    import urllib.request
+
+    def get(url: str) -> dict[str, Any]:
+        req = urllib.request.Request(url, headers={"accept": "application/json", "user-agent": "grindfree-guard-python"})
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310 (fixed https origin)
+                return _json.loads(r.read().decode("utf-8") or "{}")
+        except urllib.error.HTTPError as e:
+            raise GuardError(f"askhuman status HTTP {e.code}", service="askhuman", status=e.code) from e
+
+    return get
+
+
+@dataclass
+class HumanDecision:
+    id: str
+    status: str
+    decision: str | None
+    note: str | None
+    edited_args: Any
+    decided_at: str | None
+    approved: bool
+    raw: dict[str, Any]
 
 
 @dataclass
@@ -38,12 +69,14 @@ class GrindFreeGuard:
         on_review: OnReview = "throw",
         on_error: ErrorMode = "deny",
         timeout: float = DEFAULT_TIMEOUT,
+        get: GetFn | None = None,
     ) -> None:
         self.policy = policy
         self.on_review = on_review
         self.on_error = on_error
         self.timeout = timeout
         self._post = create_post(private_key=private_key, post=post, timeout=timeout)
+        self._get = get or _default_get(timeout + 30)
 
     def _call(self, service: str, endpoint: str, body: dict[str, Any]) -> NormalizedDecision:
         url = service_url(service, endpoint)
@@ -146,6 +179,57 @@ class GrindFreeGuard:
         body = {"url": input} if isinstance(input, str) else _clean(dict(input))
         decision = self._call_and_enforce("saferead", "read", body)
         return decision.safe_text or "", decision
+
+    # --- AskHuman: human-in-the-loop approval ($0.03 per request; status is free) ---
+    def ask_human(self, input: dict[str, Any]) -> dict[str, Any]:
+        """Put one proposed action in front of a human. Returns the ticket (id, poll_token, approval_url, ...)."""
+        try:
+            return self._post(service_url("askhuman", "request"), _clean(dict(input)))
+        except GuardError:
+            raise
+        except Exception as err:  # pragma: no cover
+            raise GuardError(str(err), service="askhuman") from err
+
+    def get_human_decision(self, ticket: dict[str, Any], wait: int = 0) -> HumanDecision:
+        from urllib.parse import quote
+
+        url = f"https://askhuman.grindfree.net/status/{quote(str(ticket['id']))}?token={quote(str(ticket['poll_token']))}"
+        if wait:
+            url += f"&wait={max(1, min(25, int(wait)))}"
+        raw = self._get(url)
+        status = str(raw.get("status"))
+        return HumanDecision(
+            id=str(raw.get("id", ticket["id"])), status=status, decision=raw.get("decision"), note=raw.get("note"),
+            edited_args=raw.get("edited_args"), decided_at=raw.get("decided_at"), approved=status in ("approved", "edited"), raw=raw,
+        )
+
+    def wait_for_human(self, ticket: dict[str, Any], max_wait: float | None = None, poll_seconds: int = 25) -> HumanDecision:
+        """Long-poll until decided or expired (fails closed: expired is not approved)."""
+        import time
+
+        deadline = time.monotonic() + (max_wait if max_wait is not None else 86400 + 60)
+        while True:
+            d = self.get_human_decision(ticket, poll_seconds)
+            if d.status != "pending" or time.monotonic() >= deadline:
+                return d
+
+    def require_human_approval(self, input: dict[str, Any], max_wait: float | None = None) -> HumanDecision:
+        """Ask + wait; raise GuardDenied unless approved/edited. Use edited_args when status == 'edited'."""
+        d = self.wait_for_human(self.ask_human(input), max_wait=max_wait)
+        if d.approved:
+            return d
+        raise GuardDenied(
+            NormalizedDecision(verdict="deny", service="askhuman", endpoint="request", reasons=[f"human {d.status}" + (f": {d.note}" if d.note else "")], raw=d.raw),
+            f"AskHuman: request {d.status}",
+        )
+
+    def with_human_approval(self, input: dict[str, Any], fn: Callable[[HumanDecision], T], review_error: GuardReviewRequired | None = None) -> tuple[T, HumanDecision]:
+        """Run fn only after a human approves. Pass a GuardReviewRequired to show the human why it was held."""
+        if review_error is not None and "guard_decision" not in input:
+            dec = review_error.decision
+            input = {**input, "guard_decision": {"service": dec.service, "verdict": getattr(dec, "raw_decision", None) or dec.verdict, "reasons": list(dec.reasons)[:10]}}
+        d = self.require_human_approval(input)
+        return fn(d), d
 
 
 def create_guard(**kwargs: Any) -> GrindFreeGuard:

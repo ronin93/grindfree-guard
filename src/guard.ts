@@ -1,3 +1,14 @@
+import {
+  askHuman as askHumanCall,
+  waitForHuman as waitForHumanCall,
+  enforceHuman,
+  guardDecisionFrom,
+  type AskHumanInput,
+  type AskHumanTicket,
+  type AskHumanDecision,
+  type WaitOptions,
+} from "./askhuman.js";
+import type { GuardReviewRequired } from "./errors.js";
 import { createPaidFetch, postJson, type ClientOptions, type PaidFetch } from "./client.js";
 import { enforce, enforceError, normalizeDecision, type EnforceOptions, type NormalizedDecision } from "./decisions.js";
 import { GuardDenied, GuardError } from "./errors.js";
@@ -263,6 +274,39 @@ export class GrindFreeGuard {
   /** Like safeRead, but enforces: block → GuardDenied, warn → onReview policy. */
   async requireSafeRead(input: ReadInput | string): Promise<SafeReadResult> {
     return toReadResult(await this.callAndEnforce("saferead", "read", clean({ ...toReadInput(input) })));
+  }
+
+  /** AskHuman: put one proposed action in front of a human ($0.03). Returns a ticket; poll with waitForHuman. */
+  askHuman(input: AskHumanInput): Promise<AskHumanTicket> {
+    return askHumanCall(this.paidFetch, input, this.options.timeoutMs);
+  }
+
+  /** Free long-poll until the human decides or the request expires. */
+  waitForHuman(ticket: Pick<AskHumanTicket, "id" | "poll_token">, opts?: WaitOptions): Promise<AskHumanDecision> {
+    return waitForHumanCall(this.paidFetch, ticket, opts);
+  }
+
+  /** Ask, wait, and throw GuardDenied unless approved/edited. Returns the decision (use edited_args when status is "edited"). */
+  async requireHumanApproval(input: AskHumanInput, opts?: WaitOptions): Promise<AskHumanDecision> {
+    const ticket = await this.askHuman(input);
+    return enforceHuman(await this.waitForHuman(ticket, opts));
+  }
+
+  /**
+   * Run fn only after a human approves. Typical use: catch GuardReviewRequired from another
+   * guard and escalate: guard.withHumanApproval({ action, notify }, fn, err).
+   */
+  async withHumanApproval<T>(
+    input: AskHumanInput,
+    fn: (decision: AskHumanDecision) => Promise<T> | T,
+    reviewError?: GuardReviewRequired,
+    opts?: WaitOptions,
+  ): Promise<{ value: T; human: AskHumanDecision }> {
+    const human = await this.requireHumanApproval(
+      reviewError && !input.guard_decision ? { ...input, guard_decision: guardDecisionFrom(reviewError) } : input,
+      opts,
+    );
+    return { value: await fn(human), human };
   }
 }
 

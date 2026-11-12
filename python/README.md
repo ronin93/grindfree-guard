@@ -23,6 +23,13 @@ except GuardDenied as err:
 
 # Read a web page safely (SafeRead, $0.003): clean Markdown, injected instructions removed.
 text, decision = guard.safe_read("https://example.com/blog/post")
+
+# Ask the owner first (AskHuman, $0.03): one-tap approve/deny link; raises GuardDenied on deny/timeout.
+human = guard.require_human_approval({
+    "action": {"title": "Refund order #1234", "args": {"amount": 82.10}, "risk": "medium"},
+    "notify": {"ntfy_topic": "my-agent-approvals-7f3a"},
+    "timeout_seconds": 900,
+})
 ```
 
 Unit tests inject a mock `post` and never make a funded call. See the repo README for LangChain, OpenAI Agents, and MCP examples, prices, and enforcement rules.

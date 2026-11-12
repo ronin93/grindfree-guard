@@ -12,6 +12,7 @@ Drop-in guards that screen **[GrindFree](https://grindfree.net)** x402 agent-sec
 | **WireShield** | `POST https://wireshield.grindfree.net/v1/scan` | $0.002 | Outbound leak check on agent output |
 | **DocShield** | `POST https://docshield.grindfree.net/v1/scan` | $0.004 | Hidden instructions in PDF / Office / HTML / Markdown |
 | **SafeRead** | `POST https://saferead.grindfree.net/v1/read` | $0.003 | Fetch a URL as clean Markdown with hidden text + prompt injections removed (`allow \| warn \| block`) |
+| **AskHuman** | `POST https://askhuman.grindfree.net/v1/request` | $0.03 | Human-in-the-loop: one-tap approve / deny / edit link to the owner (ntfy, Slack, Discord, webhook); free status polling; fails closed |
 
 Network: Base (`eip155:8453`). The remote API is advisory — **your adapter must enforce the decision**. This package does that: `deny` / `block` / high risk throws `GuardDenied` and does not run the action; `review` / `warn` / medium risk throws `GuardReviewRequired` unless you set `onReview: "allow"`. Transport failures **fail closed** (`onError: "deny"` by default).
 
@@ -60,9 +61,23 @@ await guard.guardCommand({ command: "ls -la" }, () => runShell("ls -la"));
 // instructions already removed. safeRead never throws on "block"; requireSafeRead does.
 const page = await guard.safeRead("https://example.com/blog/post");
 console.log(page.title, page.decision.verdict, page.text);
+
+// Human approval: AskHuman ($0.03) sends the owner a one-tap approve/deny link and waits
+// (free long-poll). Throws GuardDenied on deny or timeout. Great for GuardReviewRequired.
+try {
+  await guard.guardToolCall(toolCall, () => sendRefund());
+} catch (err) {
+  if (!(err instanceof GuardReviewRequired)) throw err;
+  await guard.withHumanApproval(
+    { action: { title: "Refund order #1234", tool: "stripe.refunds.create", args, risk: "medium" },
+      notify: { ntfy_topic: "my-agent-approvals-7f3a" }, timeout_seconds: 900 },
+    () => sendRefund(),
+    err,
+  );
+}
 ```
 
-Python: `text, decision = guard.safe_read("https://example.com/blog/post")` (or `require_safe_read` to enforce).
+Python: `text, decision = guard.safe_read("https://example.com/blog/post")` (or `require_safe_read` to enforce); `guard.require_human_approval({...})` / `guard.with_human_approval({...}, fn, review_error)` for AskHuman.
 
 `createGuard({ fetch })` (JS) or `create_guard(post=...)` (Python) injects a mock for tests — unit tests in this repo never make a funded call.
 

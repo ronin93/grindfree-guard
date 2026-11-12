@@ -11,7 +11,8 @@ export type ServiceName =
   | "memoryguard"
   | "wireshield"
   | "docshield"
-  | "saferead";
+  | "saferead"
+  | "askhuman";
 
 export interface EndpointSpec {
   path: string;
@@ -72,6 +73,12 @@ export const SERVICES = {
     origin: "https://saferead.grindfree.net",
     endpoints: {
       read: { path: "/v1/read", priceUsdc: "0.003" },
+    },
+  },
+  askhuman: {
+    origin: "https://askhuman.grindfree.net",
+    endpoints: {
+      request: { path: "/v1/request", priceUsdc: "0.03" },
     },
   },
 } as const satisfies Record<ServiceName, ServiceSpec>;

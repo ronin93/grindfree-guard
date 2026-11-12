@@ -162,3 +162,36 @@ def test_saferead_read_and_require():
         guard.require_safe_read({"url": "https://blog.example/boots"})
     ok = create_guard(post=router([("/v1/read", {"verdict": "allow", "content": "fine"})]))
     assert ok.require_safe_read("https://example.com/")[0] == "fine"
+
+
+def test_askhuman_flow():
+    ticket = {"id": "ah_0123456789abcdef0123456789abcdef", "status": "pending", "poll_token": "pt", "approval_url": "https://askhuman.grindfree.net/r/x"}
+    posted = []
+
+    def post(url, body):
+        posted.append((url, body))
+        return ticket
+
+    seq = [{"status": "pending"}, {"status": "edited", "decision": "edit", "edited_args": {"amount": 40}}]
+    gets = []
+
+    def get(url):
+        gets.append(url)
+        return seq[min(len(gets) - 1, len(seq) - 1)]
+
+    g = create_guard(post=post, get=get)
+    d = g.require_human_approval({"action": {"title": "Refund"}, "notify": {"link_only": True}})
+    assert d.approved and d.status == "edited" and d.edited_args == {"amount": 40}
+    assert posted[0][0] == "https://askhuman.grindfree.net/v1/request"
+    assert gets[0].endswith("/status/ah_0123456789abcdef0123456789abcdef?token=pt&wait=25")
+
+    for st in ({"status": "denied", "decision": "deny"}, {"status": "expired", "decision": "deny"}):
+        g2 = create_guard(post=post, get=lambda url, st=st: st)
+        with pytest.raises(GuardDenied):
+            g2.require_human_approval({"action": {"title": "x"}, "notify": {"link_only": True}})
+
+    review = GuardReviewRequired(normalize_decision("toolguard", "evaluate", {"decision": "review", "reasons": ["new host"]}))
+    g3 = create_guard(post=post, get=lambda url: {"status": "approved", "decision": "approve"})
+    value, human = g3.with_human_approval({"action": {"title": "y"}, "notify": {"link_only": True}}, lambda d: "ran", review)
+    assert value == "ran" and human.status == "approved"
+    assert posted[-1][1]["guard_decision"]["service"] == "toolguard"

@@ -1,7 +1,7 @@
 {
   "name": "@grindfree/guard",
-  "version": "0.2.0",
-  "description": "Drop-in x402 guards that screen PromptShield, CrawlSafe, ToolGuard, CommandGuard, MemoryGuard, WireShield, DocShield and SafeRead before an agent acts. Caller wallet only; never embeds keys.",
+  "version": "0.3.0",
+  "description": "Drop-in x402 guards that screen PromptShield, CrawlSafe, ToolGuard, CommandGuard, MemoryGuard, WireShield, DocShield and SafeRead before an agent acts, and ask a human via AskHuman. Caller wallet only; never embeds keys.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -35,7 +35,10 @@
     "promptshield",
     "mcp",
     "langchain",
-    "openai-agents"
+    "openai-agents",
+    "askhuman",
+    "human-in-the-loop",
+    "approval"
   ],
   "license": "MIT",
   "author": "GrindFree",
