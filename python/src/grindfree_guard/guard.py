@@ -231,6 +231,65 @@ class GrindFreeGuard:
         d = self.require_human_approval(input)
         return fn(d), d
 
+    # --- TrifectaGate: session exfiltration gate ($0.002 per check) ---
+    def check_egress(self, input: dict[str, Any]) -> NormalizedDecision:
+        return self._call("trifectagate", "check", _clean(dict(input)))
+
+    def gate_egress(self, input: dict[str, Any], fn: Callable[[], T]) -> GuardedResult:
+        decision = self._call_and_enforce("trifectagate", "check", _clean(dict(input)))
+        return GuardedResult(value=fn(), decision=decision)
+
+    def session(self, session_id: str | None = None, policy: dict[str, Any] | None = None, ttl_seconds: int | None = None) -> "TrifectaSession":
+        return TrifectaSession(self, session_id or new_session_id(), policy, ttl_seconds)
+
+
+def new_session_id() -> str:
+    import secrets as _secrets
+
+    return "sess_" + _secrets.token_hex(16)
+
+
+class TrifectaSession:
+    """Queue taint events locally; they ride along with the next checked action."""
+
+    def __init__(self, guard: GrindFreeGuard, session_id: str, policy: dict[str, Any] | None, ttl_seconds: int | None) -> None:
+        self.guard, self.session_id, self.policy, self.ttl_seconds = guard, session_id, policy, ttl_seconds
+        self._pending: list[dict[str, Any]] = []
+
+    def private_data(self, source: str, labels: list[str] | None = None) -> "TrifectaSession":
+        self._pending.append(_clean({"type": "private_data", "source": source, "labels": labels}))
+        return self
+
+    def untrusted(self, source: str, origin: str | None = None, verdict: str | None = None) -> "TrifectaSession":
+        self._pending.append(_clean({"type": "untrusted_content", "source": source, "origin": origin, "verdict": verdict}))
+        return self
+
+    def _body(self, action: dict[str, Any]) -> dict[str, Any]:
+        events, self._pending = self._pending[:50], self._pending[50:]
+        return _clean({"session_id": self.session_id, "session_ttl_seconds": self.ttl_seconds, "events": events or None, "action": action, "policy": self.policy})
+
+    def _requeue(self, body: dict[str, Any], err: BaseException) -> None:
+        d = getattr(err, "decision", None)
+        decided = d is not None and getattr(d, "endpoint", "") != "error" and isinstance((getattr(d, "raw", {}) or {}).get("decision"), str)
+        if body.get("events") and not decided:
+            self._pending[:0] = body["events"]
+
+    def check(self, action: dict[str, Any]) -> NormalizedDecision:
+        body = self._body(action)
+        try:
+            return self.guard.check_egress(body)
+        except BaseException as err:
+            self._requeue(body, err)
+            raise
+
+    def gate(self, action: dict[str, Any], fn: Callable[[], T]) -> GuardedResult:
+        body = self._body(action)
+        try:
+            return self.guard.gate_egress(body, fn)
+        except BaseException as err:
+            self._requeue(body, err)
+            raise
+
 
 def create_guard(**kwargs: Any) -> GrindFreeGuard:
     return GrindFreeGuard(**kwargs)

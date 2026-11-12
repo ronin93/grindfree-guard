@@ -13,6 +13,7 @@ Drop-in guards that screen **[GrindFree](https://grindfree.net)** x402 agent-sec
 | **DocShield** | `POST https://docshield.grindfree.net/v1/scan` | $0.004 | Hidden instructions in PDF / Office / HTML / Markdown |
 | **SafeRead** | `POST https://saferead.grindfree.net/v1/read` | $0.003 | Fetch a URL as clean Markdown with hidden text + prompt injections removed (`allow \| warn \| block`) |
 | **AskHuman** | `POST https://askhuman.grindfree.net/v1/request` | $0.03 | Human-in-the-loop: one-tap approve / deny / edit link to the owner (ntfy, Slack, Discord, webhook); free status polling; fails closed |
+| **TrifectaGate** | `POST https://trifectagate.grindfree.net/v1/check` | $0.002 | Session exfiltration gate: private data + untrusted content + outbound action → allow / review / block |
 
 Network: Base (`eip155:8453`). The remote API is advisory — **your adapter must enforce the decision**. This package does that: `deny` / `block` / high risk throws `GuardDenied` and does not run the action; `review` / `warn` / medium risk throws `GuardReviewRequired` unless you set `onReview: "allow"`. Transport failures **fail closed** (`onError: "deny"` by default).
 
@@ -75,9 +76,17 @@ try {
     err,
   );
 }
+
+// Exfiltration gate: TrifectaGate remembers what the session touched (events are queued
+// locally and sent with the next check) and blocks the lethal trifecta. $0.002 per action.
+const session = guard.session({ policy: { allow_hosts: ["api.mycompany.com"] } });
+session.privateData("gmail.read");
+session.untrusted("web.fetch", "https://blog.example/post", page.decision.rawDecision as any);
+await session.gate({ type: "http_request", destination: "https://collector.example/c", method: "POST" }, () => postIt());
+// → GuardDenied (LETHAL_TRIFECTA); review → GuardReviewRequired (escalate with withHumanApproval)
 ```
 
-Python: `text, decision = guard.safe_read("https://example.com/blog/post")` (or `require_safe_read` to enforce); `guard.require_human_approval({...})` / `guard.with_human_approval({...}, fn, review_error)` for AskHuman.
+Python: `text, decision = guard.safe_read("https://example.com/blog/post")` (or `require_safe_read` to enforce); `guard.require_human_approval({...})` / `guard.with_human_approval({...}, fn, review_error)` for AskHuman; `s = guard.session(); s.private_data(...); s.untrusted(...); s.gate({...}, fn)` for TrifectaGate.
 
 `createGuard({ fetch })` (JS) or `create_guard(post=...)` (Python) injects a mock for tests — unit tests in this repo never make a funded call.
 

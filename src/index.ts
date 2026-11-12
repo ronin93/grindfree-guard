@@ -1,4 +1,4 @@
-export { createGuard, guardToolCall, createGuardMiddleware, GrindFreeGuard } from "./guard.js";
+export { createGuard, guardToolCall, createGuardMiddleware, GrindFreeGuard, TrifectaSession } from "./guard.js";
 export type {
   GuardOptions,
   GuardedResult,
@@ -24,3 +24,5 @@ export { wrapMcpClient } from "./wrap-mcp.js";
 export type { WrapMcpOptions } from "./wrap-mcp.js";
 export { askHuman, getHumanDecision, waitForHuman, enforceHuman, humanDecisionAsGuard, guardDecisionFrom } from "./askhuman.js";
 export type { AskHumanInput, AskHumanAction, AskHumanNotify, AskHumanTicket, AskHumanDecision, AskHumanStatus, WaitOptions } from "./askhuman.js";
+export { newSessionId } from "./trifecta.js";
+export type { TrifectaEvent, EgressAction, EgressInput, TrifectaPolicy } from "./trifecta.js";

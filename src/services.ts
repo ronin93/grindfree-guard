@@ -12,7 +12,8 @@ export type ServiceName =
   | "wireshield"
   | "docshield"
   | "saferead"
-  | "askhuman";
+  | "askhuman"
+  | "trifectagate";
 
 export interface EndpointSpec {
   path: string;
@@ -79,6 +80,12 @@ export const SERVICES = {
     origin: "https://askhuman.grindfree.net",
     endpoints: {
       request: { path: "/v1/request", priceUsdc: "0.03" },
+    },
+  },
+  trifectagate: {
+    origin: "https://trifectagate.grindfree.net",
+    endpoints: {
+      check: { path: "/v1/check", priceUsdc: "0.002" },
     },
   },
 } as const satisfies Record<ServiceName, ServiceSpec>;

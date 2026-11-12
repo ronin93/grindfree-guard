@@ -195,3 +195,38 @@ def test_askhuman_flow():
     value, human = g3.with_human_approval({"action": {"title": "y"}, "notify": {"link_only": True}}, lambda d: "ran", review)
     assert value == "ran" and human.status == "approved"
     assert posted[-1][1]["guard_decision"]["service"] == "toolguard"
+
+
+def test_trifectagate_session():
+    calls = []
+    resp = {"value": {"decision": "allow", "reasons": ["ok"]}}
+
+    def post(url, body):
+        calls.append((url, body))
+        return resp["value"]
+
+    g = create_guard(post=post)
+    s = g.session(policy={"allow_hosts": ["api.co"]})
+    assert s.session_id.startswith("sess_") and len(s.session_id) == 37
+    s.private_data("gmail.read").untrusted("web.fetch", "https://x.example", "block")
+    d = s.check({"type": "http_request", "destination": "https://api.co/x"})
+    assert d.verdict == "allow"
+    assert calls[0][0] == "https://trifectagate.grindfree.net/v1/check"
+    assert len(calls[0][1]["events"]) == 2 and calls[0][1]["session_id"] == s.session_id
+    s.check({"type": "dns", "destination": "x.example"})
+    assert "events" not in calls[1][1]
+
+    resp["value"] = {"decision": "block", "reasons": ["trifecta"]}
+    ran = []
+    with pytest.raises(GuardDenied):
+        s.gate({"type": "email", "destination": "a@b.example"}, lambda: ran.append(1))
+    assert ran == []
+
+    def boom(url, body):
+        raise GuardError("HTTP 500", service="trifectagate", status=500)
+
+    s2 = create_guard(post=boom).session()
+    s2.private_data("db")
+    with pytest.raises(GuardDenied):
+        s2.check({"type": "webhook", "destination": "https://h.example"})
+    assert len(s2._pending) == 1, "events kept after transport failure"

@@ -30,6 +30,11 @@ human = guard.require_human_approval({
     "notify": {"ntfy_topic": "my-agent-approvals-7f3a"},
     "timeout_seconds": 900,
 })
+
+# Exfiltration gate (TrifectaGate, $0.002 per outbound action): block the lethal trifecta.
+s = guard.session()
+s.private_data("gmail.read").untrusted("web.fetch", "https://blog.example/post")
+s.gate({"type": "http_request", "destination": "https://collector.example/c"}, lambda: post_it())  # raises GuardDenied
 ```
 
 Unit tests inject a mock `post` and never make a funded call. See the repo README for LangChain, OpenAI Agents, and MCP examples, prices, and enforcement rules.

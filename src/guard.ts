@@ -9,6 +9,7 @@ import {
   type WaitOptions,
 } from "./askhuman.js";
 import type { GuardReviewRequired } from "./errors.js";
+import { newSessionId, type EgressAction, type EgressInput, type TrifectaEvent, type TrifectaPolicy } from "./trifecta.js";
 import { createPaidFetch, postJson, type ClientOptions, type PaidFetch } from "./client.js";
 import { enforce, enforceError, normalizeDecision, type EnforceOptions, type NormalizedDecision } from "./decisions.js";
 import { GuardDenied, GuardError } from "./errors.js";
@@ -307,6 +308,75 @@ export class GrindFreeGuard {
       opts,
     );
     return { value: await fn(human), human };
+  }
+
+  /** TrifectaGate raw check (no enforcement). */
+  checkEgress(input: EgressInput): Promise<NormalizedDecision> {
+    return this.call("trifectagate", "check", clean({ ...input }));
+  }
+
+  /** TrifectaGate enforced: block → GuardDenied, review → onReview policy; runs fn only when allowed. */
+  async gateEgress<T>(input: EgressInput, fn: () => Promise<T> | T): Promise<GuardedResult<T>> {
+    const decision = await this.callAndEnforce("trifectagate", "check", clean({ ...input }));
+    return { value: await fn(), decision } as GuardedResult<T>;
+  }
+
+  /**
+   * A per-session gate. Queue events as the agent touches data (free, local), and they are
+   * sent with the next guarded action (one $0.002 call per outbound action).
+   */
+  session(opts: { sessionId?: string; policy?: TrifectaPolicy; ttlSeconds?: number } = {}): TrifectaSession {
+    return new TrifectaSession(this, opts.sessionId ?? newSessionId(), opts.policy, opts.ttlSeconds);
+  }
+}
+
+export class TrifectaSession {
+  private pending: TrifectaEvent[] = [];
+  constructor(
+    private readonly guard: GrindFreeGuard,
+    readonly sessionId: string,
+    private readonly policy?: TrifectaPolicy,
+    private readonly ttlSeconds?: number,
+  ) {}
+  /** Record that the agent read private data (inbox, DB, files, CRM...). */
+  privateData(source: string, labels?: string[]): this {
+    this.pending.push(clean({ type: "private_data", source, labels }) as TrifectaEvent);
+    return this;
+  }
+  /** Record that the agent ingested untrusted content (web page, email body, doc, tool output). */
+  untrusted(source: string, origin?: string, verdict?: TrifectaEvent["verdict"]): this {
+    this.pending.push(clean({ type: "untrusted_content", source, origin, verdict }) as TrifectaEvent);
+    return this;
+  }
+  /** If the service never decided (transport/HTTP error), keep the events for the next call. */
+  private requeueIfUnseen(body: EgressInput, err: unknown): void {
+    const d = (err as { decision?: NormalizedDecision })?.decision;
+    const serverDecided = d && d.endpoint !== "error" && typeof d.raw?.decision === "string";
+    if (body.events?.length && !serverDecided) this.pending.unshift(...body.events);
+  }
+  private body(action: EgressAction): EgressInput {
+    const events = this.pending.splice(0, 50);
+    return clean({ session_id: this.sessionId, session_ttl_seconds: this.ttlSeconds, events: events.length ? events : undefined, action, policy: this.policy }) as EgressInput;
+  }
+  /** Check an outbound action (no enforcement). Events are re-queued if the call fails. */
+  async check(action: EgressAction): Promise<NormalizedDecision> {
+    const body = this.body(action);
+    try {
+      return await this.guard.checkEgress(body);
+    } catch (err) {
+      this.requeueIfUnseen(body, err);
+      throw err;
+    }
+  }
+  /** Run fn only if TrifectaGate allows the action (block → GuardDenied, review → onReview). */
+  async gate<T>(action: EgressAction, fn: () => Promise<T> | T): Promise<GuardedResult<T>> {
+    const body = this.body(action);
+    try {
+      return await this.guard.gateEgress(body, fn);
+    } catch (err) {
+      this.requeueIfUnseen(body, err);
+      throw err;
+    }
   }
 }
 
