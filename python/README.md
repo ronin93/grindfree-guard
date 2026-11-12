@@ -20,6 +20,9 @@ try:
     print(result.value)
 except GuardDenied as err:
     print("blocked", err.decision.reasons)
+
+# Read a web page safely (SafeRead, $0.003): clean Markdown, injected instructions removed.
+text, decision = guard.safe_read("https://example.com/blog/post")
 ```
 
 Unit tests inject a mock `post` and never make a funded call. See the repo README for LangChain, OpenAI Agents, and MCP examples, prices, and enforcement rules.

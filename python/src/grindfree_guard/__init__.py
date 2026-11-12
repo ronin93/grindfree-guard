@@ -25,4 +25,4 @@ __all__ = [
     "service_url",
 ]
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"

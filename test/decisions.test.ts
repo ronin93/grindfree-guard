@@ -28,6 +28,8 @@ describe("normalizeDecision", () => {
     assert.equal(normalizeDecision("memoryguard", "screen", { decision: "block" }).verdict, "deny");
     assert.equal(normalizeDecision("wireshield", "scan", { decision: "review" }).verdict, "review");
     assert.equal(normalizeDecision("docshield", "scan", { decision: "allow", safe_text: "visible" }).safeText, "visible");
+    assert.equal(normalizeDecision("saferead", "read", { verdict: "warn", content: "md" }).verdict, "review");
+    assert.equal(normalizeDecision("saferead", "read", { verdict: "allow", content: "md" }).safeText, "md");
   });
 
   it("maps CrawlSafe crawl_allowed", () => {

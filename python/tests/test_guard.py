@@ -150,3 +150,15 @@ def test_review_default_does_not_run():
     assert ran["v"] is False
     soft = create_guard(post=router([("/v1/evaluate", {"decision": "review"})]), on_review="allow")
     assert soft.guard_tool_call({"tool": "http.fetch"}, lambda: 1).value == 1
+
+
+def test_saferead_read_and_require():
+    body = {"verdict": "block", "title": "Boots", "content": "# Boots\n\nClean text", "removed": [{"rule": "HIDDEN_INSTRUCTIONS", "reason": "font-size:0"}], "flagged": []}
+    guard = create_guard(post=router([("saferead.grindfree.net/v1/read", body)]))
+    text, decision = guard.safe_read("https://blog.example/boots")
+    assert text == "# Boots\n\nClean text"
+    assert decision.verdict == "deny"
+    with pytest.raises(GuardDenied):
+        guard.require_safe_read({"url": "https://blog.example/boots"})
+    ok = create_guard(post=router([("/v1/read", {"verdict": "allow", "content": "fine"})]))
+    assert ok.require_safe_read("https://example.com/")[0] == "fine"

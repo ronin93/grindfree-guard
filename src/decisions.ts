@@ -35,12 +35,21 @@ export function normalizeDecision(
   endpoint: string,
   raw: Record<string, unknown>,
 ): NormalizedDecision {
-  const findings = Array.isArray(raw.findings) ? raw.findings : [];
+  const findings = Array.isArray(raw.findings)
+    ? raw.findings
+    : service === "saferead"
+      ? [...(Array.isArray(raw.removed) ? raw.removed : []), ...(Array.isArray(raw.flagged) ? raw.flagged : [])]
+      : [];
   const reasons = collectReasons(raw, findings);
   const sanitized = asString(raw.sanitized);
-  const safeText = asString(raw.safe_text) ?? asString(raw.safeText);
+  const safeText = asString(raw.safe_text) ?? asString(raw.safeText) ?? (service === "saferead" ? asString(raw.content) : undefined);
   const advice = asString(raw.advice);
-  const rawDecision = typeof raw.decision === "string" ? raw.decision.toLowerCase() : undefined;
+  const rawDecision =
+    typeof raw.decision === "string"
+      ? raw.decision.toLowerCase()
+      : service === "saferead" && typeof raw.verdict === "string"
+        ? raw.verdict.toLowerCase()
+        : undefined;
   const risk = asRisk(raw.risk);
 
   let verdict: Verdict;

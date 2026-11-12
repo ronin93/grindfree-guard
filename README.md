@@ -11,6 +11,7 @@ Drop-in guards that screen **[GrindFree](https://grindfree.net)** x402 agent-sec
 | **MemoryGuard** | `POST https://memoryguard.grindfree.net/v1/screen` | $0.002 | Content before it is written to agent memory |
 | **WireShield** | `POST https://wireshield.grindfree.net/v1/scan` | $0.002 | Outbound leak check on agent output |
 | **DocShield** | `POST https://docshield.grindfree.net/v1/scan` | $0.004 | Hidden instructions in PDF / Office / HTML / Markdown |
+| **SafeRead** | `POST https://saferead.grindfree.net/v1/read` | $0.003 | Fetch a URL as clean Markdown with hidden text + prompt injections removed (`allow \| warn \| block`) |
 
 Network: Base (`eip155:8453`). The remote API is advisory — **your adapter must enforce the decision**. This package does that: `deny` / `block` / high risk throws `GuardDenied` and does not run the action; `review` / `warn` / medium risk throws `GuardReviewRequired` unless you set `onReview: "allow"`. Transport failures **fail closed** (`onError: "deny"` by default).
 
@@ -54,7 +55,14 @@ const { value } = await guard.guardToolCall(
 
 // Shell: CommandGuard runs first. A wipe like `rm -rf $HOME` throws GuardDenied and is not executed.
 await guard.guardCommand({ command: "ls -la" }, () => runShell("ls -la"));
+
+// Web pages: SafeRead fetches the URL for you and returns clean Markdown with injected
+// instructions already removed. safeRead never throws on "block"; requireSafeRead does.
+const page = await guard.safeRead("https://example.com/blog/post");
+console.log(page.title, page.decision.verdict, page.text);
 ```
+
+Python: `text, decision = guard.safe_read("https://example.com/blog/post")` (or `require_safe_read` to enforce).
 
 `createGuard({ fetch })` (JS) or `create_guard(post=...)` (Python) injects a mock for tests — unit tests in this repo never make a funded call.
 

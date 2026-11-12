@@ -10,6 +10,8 @@ export type {
   MemoryInput,
   OutputInput,
   DocumentInput,
+  ReadInput,
+  SafeReadResult,
 } from "./guard.js";
 export { createPaidFetch, postJson, readPrivateKey } from "./client.js";
 export type { ClientOptions, PaidFetch } from "./client.js";

@@ -10,7 +10,8 @@ export type ServiceName =
   | "commandguard"
   | "memoryguard"
   | "wireshield"
-  | "docshield";
+  | "docshield"
+  | "saferead";
 
 export interface EndpointSpec {
   path: string;
@@ -65,6 +66,12 @@ export const SERVICES = {
     origin: "https://docshield.grindfree.net",
     endpoints: {
       scan: { path: "/v1/scan", priceUsdc: "0.004" },
+    },
+  },
+  saferead: {
+    origin: "https://saferead.grindfree.net",
+    endpoints: {
+      read: { path: "/v1/read", priceUsdc: "0.003" },
     },
   },
 } as const satisfies Record<ServiceName, ServiceSpec>;

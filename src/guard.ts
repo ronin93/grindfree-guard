@@ -56,6 +56,25 @@ export type DocumentInput = {
   policy?: Record<string, unknown>;
 };
 
+export type ReadInput = {
+  url: string;
+  format?: "markdown" | "text";
+  mode?: "strip" | "flag";
+  max_chars?: number;
+  include_links?: boolean;
+  include_images?: boolean;
+  main_content?: boolean;
+  policy?: Record<string, unknown>;
+};
+
+export type SafeReadResult = {
+  /** Clean Markdown/text with hidden content and injected instructions removed (strip mode). */
+  text: string;
+  title?: string;
+  finalUrl?: string;
+  decision: NormalizedDecision;
+};
+
 export type GuardOptions = ClientOptions &
   EnforceOptions & {
     /** Default ToolGuard / CommandGuard policy sent when a call omits one. */
@@ -226,6 +245,39 @@ export class GrindFreeGuard {
     const decision = await this.callAndEnforce("docshield", "scan", clean({ ...input, policy: input.policy ?? this.options.policy }));
     return { text: decision.safeText ?? decision.sanitized ?? input.content, decision };
   }
+
+  /** SafeRead raw call (no enforcement): fetch a URL as clean Markdown/text. */
+  readUrl(input: ReadInput | string): Promise<NormalizedDecision> {
+    return this.call("saferead", "read", clean({ ...toReadInput(input) }));
+  }
+
+  /**
+   * Fetch a URL through SafeRead and return clean text. Does NOT throw on a
+   * "block" verdict: injected instructions are already removed from `text`;
+   * inspect `decision.verdict` / `decision.findings` to see what was taken out.
+   */
+  async safeRead(input: ReadInput | string): Promise<SafeReadResult> {
+    return toReadResult(await this.readUrl(input));
+  }
+
+  /** Like safeRead, but enforces: block → GuardDenied, warn → onReview policy. */
+  async requireSafeRead(input: ReadInput | string): Promise<SafeReadResult> {
+    return toReadResult(await this.callAndEnforce("saferead", "read", clean({ ...toReadInput(input) })));
+  }
+}
+
+function toReadInput(input: ReadInput | string): ReadInput {
+  return typeof input === "string" ? { url: input } : input;
+}
+
+function toReadResult(decision: NormalizedDecision): SafeReadResult {
+  const raw = decision.raw;
+  return {
+    text: decision.safeText ?? "",
+    title: typeof raw.title === "string" ? raw.title : undefined,
+    finalUrl: typeof raw.final_url === "string" ? raw.final_url : undefined,
+    decision,
+  };
 }
 
 export function createGuard(options: GuardOptions = {}): GrindFreeGuard {

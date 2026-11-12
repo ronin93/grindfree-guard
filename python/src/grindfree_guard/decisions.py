@@ -28,9 +28,16 @@ class NormalizedDecision:
 
 
 def normalize_decision(service: str, endpoint: str, raw: dict[str, Any]) -> NormalizedDecision:
-    findings = raw.get("findings") if isinstance(raw.get("findings"), list) else []
+    if isinstance(raw.get("findings"), list):
+        findings = raw["findings"]
+    elif service == "saferead":
+        findings = [*(raw.get("removed") or []), *(raw.get("flagged") or [])]
+    else:
+        findings = []
     reasons = _collect_reasons(raw, findings)
     raw_decision = raw.get("decision")
+    if raw_decision is None and service == "saferead":
+        raw_decision = raw.get("verdict")
     raw_decision = raw_decision.lower() if isinstance(raw_decision, str) else None
     risk = raw.get("risk") if raw.get("risk") in {"low", "medium", "high"} else None
 
@@ -56,7 +63,7 @@ def normalize_decision(service: str, endpoint: str, raw: dict[str, Any]) -> Norm
         findings=findings,
         advice=raw.get("advice") if isinstance(raw.get("advice"), str) else None,
         sanitized=raw.get("sanitized") if isinstance(raw.get("sanitized"), str) else None,
-        safe_text=raw.get("safe_text") if isinstance(raw.get("safe_text"), str) else raw.get("safeText") if isinstance(raw.get("safeText"), str) else None,
+        safe_text=raw.get("safe_text") if isinstance(raw.get("safe_text"), str) else raw.get("safeText") if isinstance(raw.get("safeText"), str) else raw.get("content") if service == "saferead" and isinstance(raw.get("content"), str) else None,
         crawl_allowed=crawl_allowed,
         raw=raw,
     )

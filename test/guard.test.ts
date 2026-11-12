@@ -204,6 +204,19 @@ describe("CommandGuard / SQL / PromptShield / others", () => {
   });
 });
 
+describe("SafeRead", () => {
+  it("safeRead returns clean content without throwing on block; requireSafeRead enforces", async () => {
+    const body = { verdict: "block", title: "Boots", final_url: "https://blog.example/boots", content: "# Boots\n\nClean text", removed: [{ rule: "HIDDEN_INSTRUCTIONS", reason: "font-size:0" }], flagged: [] };
+    const guard = createGuard({ fetch: mockPaidFetch([{ urlIncludes: "saferead.grindfree.net/v1/read", body }, { urlIncludes: "saferead.grindfree.net/v1/read", body }]) });
+    const r = await guard.safeRead("https://blog.example/boots");
+    assert.equal(r.text, "# Boots\n\nClean text");
+    assert.equal(r.title, "Boots");
+    assert.equal(r.decision.verdict, "deny");
+    assert.deepEqual(r.decision.reasons, ["HIDDEN_INSTRUCTIONS: font-size:0"]);
+    await assert.rejects(() => guard.requireSafeRead({ url: "https://blog.example/boots" }), GuardDenied);
+  });
+});
+
 describe("fail-closed errors", () => {
   it("turns a 500 into GuardDenied by default and does not run the action", async () => {
     const guard = createGuard({

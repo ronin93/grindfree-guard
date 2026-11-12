@@ -131,6 +131,22 @@ class GrindFreeGuard:
         decision = self._call_and_enforce("docshield", "scan", _clean({**input, "policy": input.get("policy", self.policy)}))
         return decision.safe_text or decision.sanitized or input.get("content"), decision
 
+    def read_url(self, input: dict[str, Any] | str) -> NormalizedDecision:
+        """SafeRead: fetch a URL as clean Markdown/text (no enforcement)."""
+        body = {"url": input} if isinstance(input, str) else _clean(dict(input))
+        return self._call("saferead", "read", body)
+
+    def safe_read(self, input: dict[str, Any] | str) -> tuple[str, NormalizedDecision]:
+        """Clean text with injected instructions already removed. Does not raise on block; inspect decision."""
+        decision = self.read_url(input)
+        return decision.safe_text or "", decision
+
+    def require_safe_read(self, input: dict[str, Any] | str) -> tuple[str, NormalizedDecision]:
+        """Like safe_read but enforces: block -> GuardDenied, warn -> on_review policy."""
+        body = {"url": input} if isinstance(input, str) else _clean(dict(input))
+        decision = self._call_and_enforce("saferead", "read", body)
+        return decision.safe_text or "", decision
+
 
 def create_guard(**kwargs: Any) -> GrindFreeGuard:
     return GrindFreeGuard(**kwargs)
