@@ -1,7 +1,7 @@
 {
   "name": "@grindfree/guard",
-  "version": "0.3.0",
-  "description": "Drop-in x402 guards that screen PromptShield, CrawlSafe, ToolGuard, CommandGuard, MemoryGuard, WireShield, DocShield and SafeRead before an agent acts, gate exfiltration with TrifectaGate, and ask a human via AskHuman. Caller wallet only; never embeds keys.",
+  "version": "0.4.0",
+  "description": "Drop-in x402 guards that screen PromptShield, CrawlSafe, ToolGuard, CommandGuard, MemoryGuard, WireShield, DocShield and SafeRead before an agent acts, convert documents to clean Markdown with DocRead, gate exfiltration with TrifectaGate, and ask a human via AskHuman. Caller wallet only; never embeds keys.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -41,7 +41,9 @@
     "approval",
     "trifectagate",
     "lethal-trifecta",
-    "exfiltration"
+    "exfiltration",
+    "docread",
+    "pdf-to-markdown"
   ],
   "license": "MIT",
   "author": "GrindFree",

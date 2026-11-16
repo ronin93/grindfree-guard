@@ -180,6 +180,22 @@ class GrindFreeGuard:
         decision = self._call_and_enforce("saferead", "read", body)
         return decision.safe_text or "", decision
 
+    def convert_document(self, input: dict[str, Any] | str) -> NormalizedDecision:
+        """DocRead ($0.003): convert a document (url, content_base64+filename, or content) to clean Markdown (no enforcement)."""
+        body = {"url": input} if isinstance(input, str) else _clean(dict(input))
+        return self._call("docread", "convert", body)
+
+    def read_document(self, input: dict[str, Any] | str) -> tuple[str, NormalizedDecision]:
+        """Clean Markdown with hidden text and injected instructions already removed. Does not raise on block."""
+        decision = self.convert_document(input)
+        return decision.safe_text or "", decision
+
+    def require_read_document(self, input: dict[str, Any] | str) -> tuple[str, NormalizedDecision]:
+        """Like read_document but enforces: block -> GuardDenied, warn -> on_review policy."""
+        body = {"url": input} if isinstance(input, str) else _clean(dict(input))
+        decision = self._call_and_enforce("docread", "convert", body)
+        return decision.safe_text or "", decision
+
     # --- AskHuman: human-in-the-loop approval ($0.03 per request; status is free) ---
     def ask_human(self, input: dict[str, Any]) -> dict[str, Any]:
         """Put one proposed action in front of a human. Returns the ticket (id, poll_token, approval_url, ...)."""

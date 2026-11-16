@@ -5,13 +5,14 @@ Drop-in guards that screen **[GrindFree](https://grindfree.net)** x402 agent-sec
 | Service | Endpoint | Price | What it checks |
 |---|---|---|---|
 | **PromptShield** | `POST https://promptshield.grindfree.net/v1/screen` · `/v1/clean` | $0.002 | Prompt-injection screen + HTML→LLM clean text |
-| **CrawlSafe** | `POST https://crawlsafe.grindfree.net/v1/check` | $0.002 | robots.txt / X-Robots-Tag crawl gate (not malware scanning) |
+| **CrawlSafe** | `POST https://crawlsafe.grindfree.net/v1/check` | $0.001 | robots.txt / X-Robots-Tag crawl gate (not malware scanning) |
 | **ToolGuard** | `POST https://toolguard.grindfree.net/v1/evaluate` | $0.002 | Pre-tool-call `allow \| review \| deny` vs owner policy |
 | **CommandGuard** | `POST https://commandguard.grindfree.net/v1/command` · `/v1/sql` | $0.001 | Shell + SQL check: `allow \| warn \| block` |
 | **MemoryGuard** | `POST https://memoryguard.grindfree.net/v1/screen` | $0.002 | Content before it is written to agent memory |
 | **WireShield** | `POST https://wireshield.grindfree.net/v1/scan` | $0.002 | Outbound leak check on agent output |
 | **DocShield** | `POST https://docshield.grindfree.net/v1/scan` | $0.004 | Hidden instructions in PDF / Office / HTML / Markdown |
-| **SafeRead** | `POST https://saferead.grindfree.net/v1/read` | $0.003 | Fetch a URL as clean Markdown with hidden text + prompt injections removed (`allow \| warn \| block`) |
+| **SafeRead** | `POST https://saferead.grindfree.net/v1/read` | $0.002 | Fetch a URL as clean Markdown with hidden text + prompt injections removed (`allow \| warn \| block`) |
+| **DocRead** | `POST https://docread.grindfree.net/v1/convert` | $0.003 | Any document (PDF, DOCX, XLSX, PPTX, HTML, text; URL or upload) → clean Markdown for the model, hidden text + prompt injections stripped, removal report |
 | **AskHuman** | `POST https://askhuman.grindfree.net/v1/request` | $0.03 | Human-in-the-loop: one-tap approve / deny / edit link to the owner (ntfy, Slack, Discord, webhook); free status polling; fails closed |
 | **TrifectaGate** | `POST https://trifectagate.grindfree.net/v1/check` | $0.002 | Session exfiltration gate: private data + untrusted content + outbound action → allow / review / block |
 
@@ -62,6 +63,12 @@ await guard.guardCommand({ command: "ls -la" }, () => runShell("ls -la"));
 // instructions already removed. safeRead never throws on "block"; requireSafeRead does.
 const page = await guard.safeRead("https://example.com/blog/post");
 console.log(page.title, page.decision.verdict, page.text);
+
+// Documents: DocRead converts a PDF/DOCX/XLSX/PPTX/HTML file (URL or base64 upload) to clean
+// Markdown with hidden text and injected instructions removed. readDocument never throws on
+// "block"; requireReadDocument does.
+const doc = await guard.readDocument("https://example.com/files/vendor-agreement.pdf");
+// doc.markdown → feed to the model as data; doc.decision.findings → what was removed
 
 // Human approval: AskHuman ($0.03) sends the owner a one-tap approve/deny link and waits
 // (free long-poll). Throws GuardDenied on deny or timeout. Great for GuardReviewRequired.

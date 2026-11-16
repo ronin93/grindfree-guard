@@ -12,6 +12,8 @@ export type {
   DocumentInput,
   ReadInput,
   SafeReadResult,
+  DocReadInput,
+  DocReadResult,
 } from "./guard.js";
 export { createPaidFetch, postJson, readPrivateKey } from "./client.js";
 export type { ClientOptions, PaidFetch } from "./client.js";

@@ -164,6 +164,18 @@ def test_saferead_read_and_require():
     assert ok.require_safe_read("https://example.com/")[0] == "fine"
 
 
+def test_docread_read_and_require():
+    body = {"verdict": "block", "title": "Agreement", "markdown": "# Agreement\n\nNet 30.", "removed": [{"rule": "HIDDEN_INSTRUCTIONS", "reason": "invisible render mode"}], "flagged": []}
+    guard = create_guard(post=router([("docread.grindfree.net/v1/convert", body)]))
+    text, decision = guard.read_document("https://example.com/a.pdf")
+    assert text == "# Agreement\n\nNet 30."
+    assert decision.verdict == "deny"
+    with pytest.raises(GuardDenied):
+        guard.require_read_document({"content_base64": "JVBERi0=", "filename": "a.pdf"})
+    ok = create_guard(post=router([("/v1/convert", {"verdict": "allow", "markdown": "fine"})]))
+    assert ok.require_read_document("https://example.com/a.pdf")[0] == "fine"
+
+
 def test_askhuman_flow():
     ticket = {"id": "ah_0123456789abcdef0123456789abcdef", "status": "pending", "poll_token": "pt", "approval_url": "https://askhuman.grindfree.net/r/x"}
     posted = []

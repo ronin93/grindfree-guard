@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { createGuard, guardToolCall, createGuardMiddleware, createPaidFetch } from "../src/index.js";
+import { createGuard, guardToolCall, createGuardMiddleware, createPaidFetch, SERVICES } from "../src/index.js";
 import { GuardConfigError, GuardDenied, GuardError, GuardReviewRequired } from "../src/errors.js";
 import { mockPaidFetch } from "./helpers.js";
 
@@ -214,6 +214,26 @@ describe("SafeRead", () => {
     assert.equal(r.decision.verdict, "deny");
     assert.deepEqual(r.decision.reasons, ["HIDDEN_INSTRUCTIONS: font-size:0"]);
     await assert.rejects(() => guard.requireSafeRead({ url: "https://blog.example/boots" }), GuardDenied);
+  });
+});
+
+describe("DocRead", () => {
+  it("readDocument returns clean markdown without throwing on block; requireReadDocument enforces; prices are current", async () => {
+    const body = { title: "Vendor Agreement", doc_type: "pdf", pages: 1, markdown: "# Vendor Agreement\n\nNet 30.", verdict: "block", report: { removed_count: 1 }, removed: [{ rule: "HIDDEN_INSTRUCTIONS", reason: "invisible render mode" }], flagged: [] };
+    const guard = createGuard({ fetch: mockPaidFetch([{ urlIncludes: "docread.grindfree.net/v1/convert", body }, { urlIncludes: "docread.grindfree.net/v1/convert", body }]) });
+    const r = await guard.readDocument("https://example.com/agreement.pdf");
+    assert.equal(r.markdown, "# Vendor Agreement\n\nNet 30.");
+    assert.equal(r.docType, "pdf");
+    assert.equal(r.pages, 1);
+    assert.equal(r.decision.verdict, "deny");
+    assert.deepEqual(r.decision.reasons, ["HIDDEN_INSTRUCTIONS: invisible render mode"]);
+    await assert.rejects(() => guard.requireReadDocument({ content_base64: "JVBERi0=", filename: "a.pdf" }), GuardDenied);
+    const okGuard = createGuard({ fetch: mockPaidFetch([{ urlIncludes: "docread.grindfree.net/v1/convert", body: { ...body, verdict: "allow", removed: [] } }]) });
+    const ok = await okGuard.requireReadDocument({ url: "https://example.com/agreement.pdf" });
+    assert.equal(ok.decision.verdict, "allow");
+    assert.equal(SERVICES.docread.endpoints.convert.priceUsdc, "0.003");
+    assert.equal(SERVICES.saferead.endpoints.read.priceUsdc, "0.002");
+    assert.equal(SERVICES.crawlsafe.endpoints.check.priceUsdc, "0.001");
   });
 });
 

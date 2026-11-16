@@ -79,6 +79,31 @@ export type ReadInput = {
   policy?: Record<string, unknown>;
 };
 
+export type DocReadInput = {
+  /** http(s) URL of the document (PDF, DOCX, XLSX, PPTX, HTML, Markdown, text). */
+  url?: string;
+  /** File bytes, base64 (alternative to url). */
+  content_base64?: string;
+  /** File name with extension, helps format detection (e.g. report.docx). */
+  filename?: string;
+  /** Inline HTML, Markdown or plain text. */
+  content?: string;
+  format?: "markdown" | "text";
+  mode?: "strip" | "flag";
+  max_chars?: number;
+  include_speaker_notes?: boolean;
+  policy?: Record<string, unknown>;
+};
+
+export type DocReadResult = {
+  /** Clean Markdown built from visible content only, injected instructions removed (strip mode). */
+  markdown: string;
+  title?: string;
+  docType?: string;
+  pages?: number;
+  decision: NormalizedDecision;
+};
+
 export type SafeReadResult = {
   /** Clean Markdown/text with hidden content and injected instructions removed (strip mode). */
   text: string;
@@ -277,6 +302,25 @@ export class GrindFreeGuard {
     return toReadResult(await this.callAndEnforce("saferead", "read", clean({ ...toReadInput(input) })));
   }
 
+  /** DocRead raw call (no enforcement): convert a document to clean Markdown. */
+  convertDocument(input: DocReadInput | string): Promise<NormalizedDecision> {
+    return this.call("docread", "convert", clean({ ...toDocReadInput(input) }));
+  }
+
+  /**
+   * Convert a document (URL, base64 bytes or inline text) to clean Markdown via DocRead
+   * ($0.003). Does NOT throw on "block": hidden text and injected instructions are already
+   * removed from `markdown`; inspect `decision.findings` to see what was taken out.
+   */
+  async readDocument(input: DocReadInput | string): Promise<DocReadResult> {
+    return toDocReadResult(await this.convertDocument(input));
+  }
+
+  /** Like readDocument, but enforces: block → GuardDenied, warn → onReview policy. */
+  async requireReadDocument(input: DocReadInput | string): Promise<DocReadResult> {
+    return toDocReadResult(await this.callAndEnforce("docread", "convert", clean({ ...toDocReadInput(input) })));
+  }
+
   /** AskHuman: put one proposed action in front of a human ($0.03). Returns a ticket; poll with waitForHuman. */
   askHuman(input: AskHumanInput): Promise<AskHumanTicket> {
     return askHumanCall(this.paidFetch, input, this.options.timeoutMs);
@@ -382,6 +426,21 @@ export class TrifectaSession {
 
 function toReadInput(input: ReadInput | string): ReadInput {
   return typeof input === "string" ? { url: input } : input;
+}
+
+function toDocReadInput(input: DocReadInput | string): DocReadInput {
+  return typeof input === "string" ? { url: input } : input;
+}
+
+function toDocReadResult(decision: NormalizedDecision): DocReadResult {
+  const raw = decision.raw;
+  return {
+    markdown: decision.safeText ?? "",
+    title: typeof raw.title === "string" ? raw.title : undefined,
+    docType: typeof raw.doc_type === "string" ? raw.doc_type : undefined,
+    pages: typeof raw.pages === "number" ? raw.pages : undefined,
+    decision,
+  };
 }
 
 function toReadResult(decision: NormalizedDecision): SafeReadResult {

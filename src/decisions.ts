@@ -37,17 +37,17 @@ export function normalizeDecision(
 ): NormalizedDecision {
   const findings = Array.isArray(raw.findings)
     ? raw.findings
-    : service === "saferead"
+    : service === "saferead" || service === "docread"
       ? [...(Array.isArray(raw.removed) ? raw.removed : []), ...(Array.isArray(raw.flagged) ? raw.flagged : [])]
       : [];
   const reasons = collectReasons(raw, findings);
   const sanitized = asString(raw.sanitized);
-  const safeText = asString(raw.safe_text) ?? asString(raw.safeText) ?? (service === "saferead" ? asString(raw.content) : undefined);
+  const safeText = asString(raw.safe_text) ?? asString(raw.safeText) ?? (service === "saferead" ? asString(raw.content) : service === "docread" ? asString(raw.markdown) : undefined);
   const advice = asString(raw.advice);
   const rawDecision =
     typeof raw.decision === "string"
       ? raw.decision.toLowerCase()
-      : service === "saferead" && typeof raw.verdict === "string"
+      : (service === "saferead" || service === "docread") && typeof raw.verdict === "string"
         ? raw.verdict.toLowerCase()
         : undefined;
   const risk = asRisk(raw.risk);

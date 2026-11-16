@@ -12,6 +12,7 @@ export type ServiceName =
   | "wireshield"
   | "docshield"
   | "saferead"
+  | "docread"
   | "askhuman"
   | "trifectagate";
 
@@ -36,7 +37,7 @@ export const SERVICES = {
   crawlsafe: {
     origin: "https://crawlsafe.grindfree.net",
     endpoints: {
-      check: { path: "/v1/check", priceUsdc: "0.002" },
+      check: { path: "/v1/check", priceUsdc: "0.001" },
     },
   },
   toolguard: {
@@ -73,7 +74,13 @@ export const SERVICES = {
   saferead: {
     origin: "https://saferead.grindfree.net",
     endpoints: {
-      read: { path: "/v1/read", priceUsdc: "0.003" },
+      read: { path: "/v1/read", priceUsdc: "0.002" },
+    },
+  },
+  docread: {
+    origin: "https://docread.grindfree.net",
+    endpoints: {
+      convert: { path: "/v1/convert", priceUsdc: "0.003" },
     },
   },
   askhuman: {
