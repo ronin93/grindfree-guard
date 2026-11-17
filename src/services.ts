@@ -75,12 +75,14 @@ export const SERVICES = {
     origin: "https://saferead.grindfree.net",
     endpoints: {
       read: { path: "/v1/read", priceUsdc: "0.002" },
+      readBatch: { path: "/v1/read-batch", priceUsdc: "0.002" }, // per URL, up to 10 URLs per call
     },
   },
   docread: {
     origin: "https://docread.grindfree.net",
     endpoints: {
       convert: { path: "/v1/convert", priceUsdc: "0.003" },
+      tables: { path: "/v1/tables", priceUsdc: "0.004" },
     },
   },
   askhuman: {

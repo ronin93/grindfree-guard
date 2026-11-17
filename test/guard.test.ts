@@ -233,6 +233,8 @@ describe("DocRead", () => {
     assert.equal(ok.decision.verdict, "allow");
     assert.equal(SERVICES.docread.endpoints.convert.priceUsdc, "0.003");
     assert.equal(SERVICES.saferead.endpoints.read.priceUsdc, "0.002");
+    assert.equal(SERVICES.saferead.endpoints.readBatch.path, "/v1/read-batch");
+    assert.equal(SERVICES.docread.endpoints.tables.priceUsdc, "0.004");
     assert.equal(SERVICES.crawlsafe.endpoints.check.priceUsdc, "0.001");
   });
 });

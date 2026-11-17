@@ -15,8 +15,8 @@ SERVICES = {
     "memoryguard": {"origin": "https://memoryguard.grindfree.net", "endpoints": {"screen": "/v1/screen"}},
     "wireshield": {"origin": "https://wireshield.grindfree.net", "endpoints": {"scan": "/v1/scan"}},
     "docshield": {"origin": "https://docshield.grindfree.net", "endpoints": {"scan": "/v1/scan"}},
-    "saferead": {"origin": "https://saferead.grindfree.net", "endpoints": {"read": "/v1/read"}},
-    "docread": {"origin": "https://docread.grindfree.net", "endpoints": {"convert": "/v1/convert"}},
+    "saferead": {"origin": "https://saferead.grindfree.net", "endpoints": {"read": "/v1/read", "read_batch": "/v1/read-batch"}},
+    "docread": {"origin": "https://docread.grindfree.net", "endpoints": {"convert": "/v1/convert", "tables": "/v1/tables"}},
     "askhuman": {"origin": "https://askhuman.grindfree.net", "endpoints": {"request": "/v1/request"}},
     "trifectagate": {"origin": "https://trifectagate.grindfree.net", "endpoints": {"check": "/v1/check"}},
 }
